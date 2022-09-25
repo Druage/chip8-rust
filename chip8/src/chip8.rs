@@ -76,6 +76,18 @@ impl Chip8 {
                 }
             }
 
+            (0x4, _, _, _) => {
+                if self.registers[x] != nn {
+                    pc_step = self.skip_next();
+                }
+            }
+
+            (0x5, _, _, 0x0) => {
+                if self.registers[x] == self.registers[y] {
+                    pc_step = self.skip_next();
+                }
+            }
+
             _ => println!("UNREACHED CODE {} {} {} {} {}", nnn, nn, x, y, n)
         }
 
@@ -159,6 +171,56 @@ mod tests {
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x3001);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+    }
+
+    #[test]
+    // Skips the next instruction if VX does not equal NN
+    fn op_4xnn_should_skip_next() {
+        let mut c8 = new();
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x4001);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 4);
+    }
+
+    #[test]
+    // Skips the next instruction if VX does not equal NN
+    fn op_4xnn_should_not_skip_next() {
+        let mut c8 = new();
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x4000);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+    }
+
+    #[test]
+    // Skips the next instruction if VX equals VY
+    fn op_5xnn_should_skip_next() {
+        let mut c8 = new();
+
+        let (x_val, y_val) = (0x01, 0x01);
+
+        c8.registers[0] = x_val;
+        c8.registers[1] = y_val;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x5010);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 4);
+    }
+
+    #[test]
+    // Skips the next instruction if VX equals VY
+    fn op_5xnn_should_not_skip_next() {
+        let mut c8 = new();
+
+        let (x_val, y_val) = (0x01, 0x02);
+
+        c8.registers[0] = x_val;
+        c8.registers[2] = y_val;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x5020);
         assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
     }
 }
