@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    "main",
+    "bin",
     "chip8"
 ]

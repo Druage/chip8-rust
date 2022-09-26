@@ -71,7 +71,7 @@ impl Chip8 {
             (0x0, 0x0, 0xE, 0xE) => println!("Return from subrouting"),
 
             (0x3, _, _, _) => {
-                  if self.v[x] == nn {
+                if self.v[x] == nn {
                     pc_step = self.skip_next();
                 }
             }
@@ -92,6 +92,17 @@ impl Chip8 {
             (0x7, _, _, _) => self.v[x] += nn,
             (0x8, _, _, 0x0) => self.v[x] = self.v[y],
             (0x8, _, _, 0x1) => self.v[x] |= self.v[y],
+            (0x8, _, _, 0x2) => self.v[x] &= self.v[y],
+            (0x8, _, _, 0x3) => self.v[x] ^= self.v[y],
+            (0x8, _, _, 0x4) => {
+                if self.v[y] > (0xFF - self.v[x]) {
+                    self.v[0xF] = 1; // carry
+                } else {
+                    self.v[0xF] = 0;
+                }
+
+                self.v[x] = self.v[x].wrapping_add(self.v[y]);
+            }
 
             _ => println!("UNREACHED CODE {} {} {} {} {}", nnn, nn, x, y, n)
         }
@@ -277,13 +288,77 @@ mod tests {
     fn op_8xn1() {
         let mut c8 = new();
 
-        c8.v[3] = 0x02;
-        c8.v[4] = 0x03;
+        c8.v[3] = 0b101;
+        c8.v[4] = 0b110;
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x8341);
         assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
 
-        assert_eq!(c8.v[3], 0x02 | 0x03);
+        assert_eq!(c8.v[3], 0b101 | 0b110);
+    }
+
+    #[test]
+    // Sets VX to VX and VY. (bitwise AND operation)
+    fn op_8xn2() {
+        let mut c8 = new();
+
+        c8.v[3] = 0b101;
+        c8.v[4] = 0b011;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8342);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0b101 & 0b011);
+    }
+
+    #[test]
+    // Sets VX to VX xor VY.
+    fn op_8xn3() {
+        let mut c8 = new();
+
+        c8.v[3] = 0b101;
+        c8.v[4] = 0b011;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8343);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0b101 ^ 0b011);
+    }
+
+    #[test]
+    // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
+    fn op_8xn4_should_carry() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0xFF;
+        c8.v[4] = 0x01;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8344);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0xFFu8.wrapping_add(0x01));
+        assert_eq!(c8.v[0xF], 1);
+    }
+
+    #[test]
+    // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
+    fn op_8xn4_should_not_carry() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0xFE;
+        c8.v[4] = 0x01;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8344);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0xFE + 0x01);
+        assert_eq!(c8.v[0xF], 0);
     }
 }
