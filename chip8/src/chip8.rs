@@ -91,6 +91,7 @@ impl Chip8 {
             (0x6, _, _, _) => self.v[x] = nn,
             (0x7, _, _, _) => self.v[x] += nn,
             (0x8, _, _, 0x0) => self.v[x] = self.v[y],
+            (0x8, _, _, 0x1) => self.v[x] |= self.v[y],
 
             _ => println!("UNREACHED CODE {} {} {} {} {}", nnn, nn, x, y, n)
         }
@@ -269,5 +270,20 @@ mod tests {
         assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
 
         assert_eq!(c8.v[3], 0x03);
+    }
+
+    #[test]
+    // Sets VX to VX or VY. (bitwise OR operation)
+    fn op_8xn1() {
+        let mut c8 = new();
+
+        c8.v[3] = 0x02;
+        c8.v[4] = 0x03;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8341);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0x02 | 0x03);
     }
 }
