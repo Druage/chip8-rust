@@ -1,3 +1,4 @@
+pub const BYTES_PER_LINE: u8 = 5;
 pub const FONTS: [u8; 80] =
     [
         0xF0, 0x90, 0x90, 0x90, 0xF0, // 0

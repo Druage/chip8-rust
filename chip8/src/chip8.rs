@@ -1,13 +1,16 @@
 use crate::fonts;
+use rand::prelude::*;
 
 const STARTING_PC_OFFSET: u16 = 0x200;
+const GFX_WIDTH: usize = 64;
+const GFX_HEIGHT: usize = 32;
 
 pub struct Chip8 {
-    memory: [i32; 4096],
+    memory: [u8; 4096],
     v: [u8; 16],
     stack: [u16; 16],
     input: [u8; 16],
-    gfx: [u8; 64 * 32],
+    gfx: [u8; GFX_WIDTH * GFX_HEIGHT],
 
     opcode: u16,
     i: u16,
@@ -24,7 +27,7 @@ pub fn new() -> Chip8 {
         v: [0; 16],
         stack: [0; 16],
         input: [0; 16],
-        gfx: [0; 64 * 32],
+        gfx: [0; GFX_WIDTH * GFX_HEIGHT],
 
         opcode: 0,
         i: 0,
@@ -36,15 +39,44 @@ pub fn new() -> Chip8 {
     };
 
     for i in 0..fonts::FONTS.len() {
-        c8.memory[i] = fonts::FONTS[i] as i32;
+        c8.memory[i] = fonts::FONTS[i];
     }
 
     return c8;
 }
 
 impl Chip8 {
-    pub fn print(&self) {
-        println!("Hello World");
+    fn print(&self) {
+        /*
+        void Chip8::drawToConsole() {
+    // Draw
+    auto debug = qDebug();
+    for(int y = 0; y < 32; ++y)
+    {
+        for(int x = 0; x < 64; ++x)
+        {
+            if( m_gfx[(y*64) + x] == 0)
+                debug << " ";
+            else
+                debug << "X";
+        }
+        debug << "\n";
+    }
+
+}
+         */
+
+        for col in 0..GFX_HEIGHT {
+            for row in 0..GFX_WIDTH {
+                if self.gfx[col * GFX_WIDTH + row] == 0 {
+                    print!("-")
+                } else {
+                    print!("X")
+                }
+            }
+
+            print!("\n");
+        }
     }
 
     pub fn exec_op(&mut self, code: u16) {
@@ -114,7 +146,7 @@ impl Chip8 {
             }
 
             (0x8, _, _, 0x6) => {
-                self.v[0xF] = self.v[x] & 0x1;
+                self.v[0xF] = self.v[x] & 1;
                 self.v[x] >>= 1;
             }
 
@@ -126,6 +158,91 @@ impl Chip8 {
                 }
 
                 self.v[x] = self.v[y].wrapping_sub(self.v[x]);
+            }
+
+            (0x8, _, _, 0xE) => {
+                self.v[0xF] = (self.v[x] >> 7) & 1;
+                self.v[x] <<= 1;
+            }
+
+            (0x9, _, _, 0x0) => {
+                if self.v[x] != self.v[y] {
+                    pc_step = self.skip_next();
+                }
+            }
+
+            (0xA, _, _, _) => self.i = nnn,
+            (0xB, _, _, _) => {
+                self.pc = (self.v[0] as u16 + nnn) as u16;
+                return; // Jump to address by not letting pc_step increment self.pc
+            }
+
+            (0xC, _, _, _) => self.v[x] = rand::random::<u8>() & nn,
+            (0xD, _, _, _) => {
+                self.v[0xF] = 0;
+
+                for col in 0..n {
+                    let y_pos = (self.v[y] as usize + col) % GFX_HEIGHT;
+
+                    for row in 0..8 {
+                        let x_pos = (self.v[x] as usize + row) % GFX_WIDTH;
+
+                        let color = (self.memory[self.i as usize + col] >> (7 - row)) & 1;
+
+                        self.v[0xF] |= (color & self.gfx[(x_pos + row + ((y_pos as usize + col) * GFX_WIDTH))]);
+                        self.gfx[(x_pos + row + ((y_pos + col) * GFX_WIDTH))] ^= color;
+                    }
+                }
+            }
+
+            (0xE, _, 0x9, 0xE) => {
+                if self.input[self.v[x] as usize] == 1 {
+                    pc_step = self.skip_next();
+                }
+            }
+
+            (0xE, _, 0xA, 0x1) => {
+                if self.input[self.v[x] as usize] != 1 {
+                    pc_step = self.skip_next();
+                }
+            }
+
+            (0xF, _, 0x0, 0x7) => self.v[x] = self.delay_timer,
+            (0xF, _, 0x0, 0xA) => {
+                let mut input_pressed = false;
+                for i in 0..self.input.len() {
+                    if self.input[i] == 1 {
+                        self.v[x] = i as u8;
+                        input_pressed = true;
+                        break;
+                    }
+                }
+
+                if !input_pressed {
+                    return;
+                }
+            }
+
+            (0xF, _, 0x1, 0x5) => self.delay_timer = self.v[x],
+            (0xF, _, 0x1, 0x8) => self.sound_timer = self.v[x],
+            (0xF, _, 0x1, 0xE) => self.i += self.v[x] as u16,
+            (0xF, _, 0x2, 0x9) => self.i = (self.v[x] * fonts::BYTES_PER_LINE) as u16,
+            (0xF, _, 0x3, 0x3) => {
+                self.memory[self.i as usize] = self.v[x] / 100;
+                self.memory[self.i as usize + 1] = (self.v[x] % 100) / 10;
+                self.memory[self.i as usize + 2] = self.v[x] % 10;
+            }
+
+            (0xF, _, 0x5, 0x5) => {
+                for register_index in 0..x + 1 {
+                    self.memory[self.i as usize + register_index] = self.v[register_index];
+                }
+            }
+
+            (0xF, _, 0x6, 0x5) => {
+                for register_index in 0..x + 1 {
+                    self.v[register_index] = self.memory[self.i as usize + register_index];
+                }
             }
 
             _ => println!("UNREACHED CODE {} {} {} {} {}", nnn, nn, x, y, n)
@@ -158,9 +275,10 @@ mod tests {
             assert_eq!(m, 0);
         }
 
-        for m in c8.gfx {
-            assert_eq!(m, 0);
+        for bit in c8.gfx {
+            assert_eq!(bit, 0);
         }
+
         assert_eq!(c8.opcode, 0);
         assert_eq!(c8.i, 0);
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
@@ -173,7 +291,7 @@ mod tests {
     fn on_new_should_load_fonts_into_memory() {
         let c8 = new();
         for i in 0..80 {
-            assert_eq!(c8.memory[i], fonts::FONTS[i] as i32);
+            assert_eq!(c8.memory[i], fonts::FONTS[i]);
         }
     }
 
@@ -181,16 +299,14 @@ mod tests {
     fn should_clear_the_screen_and_inc_counter() {
         let mut c8 = new();
 
-        for i in 0..c8.gfx.len() {
-            c8.gfx[i] = 1;
-        }
+        c8.gfx.fill(1);
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x00E0);
         assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
 
-        for x in c8.gfx {
-            assert_eq!(x, 0);
+        for bit in c8.gfx {
+            assert_eq!(bit, 0);
         }
     }
 
@@ -485,5 +601,334 @@ mod tests {
 
         assert_eq!(c8.v[3], 0x00u8.wrapping_sub(0x01));
         assert_eq!(c8.v[0xF], 0);
+    }
+
+    #[test]
+    // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
+    fn op_8xye() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0b01;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x830E);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0b10);
+        assert_eq!(c8.v[0xF], 0);
+    }
+
+    #[test]
+    // Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block);
+    fn op_9xy40_should_skip() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 1;
+        c8.v[4] = 2;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x9340);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 4);
+    }
+
+    #[test]
+    // Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block);
+    fn op_9xy40_should_not_skip() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 2;
+        c8.v[4] = 2;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x9340);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+    }
+
+    #[test]
+    // Sets I to the address NNN.
+    fn op_annn() {
+        let mut c8 = new();
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xAEF1);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.i, 0x0EF1);
+    }
+
+    #[test]
+    // Jumps to the address NNN plus V0.
+    fn op_bnnn() {
+        let mut c8 = new();
+
+        c8.v[0x0] = 0x01;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xB123);
+
+        assert_eq!(c8.pc, 0x01 + 0x0123);
+    }
+
+    // #[test]
+    // // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN.
+    // fn op_cxnn() {
+    //     let mut c8 = new();
+    //
+    //     assert_eq!(c8.pc, STARTING_PC_OFFSET);
+    //     c8.exec_op(0xC133);
+    //
+    //     let mut rng = rng::test::rng(538);
+    //
+    //     assert_eq!(c8.v[1], 123 & 0x0033);
+    // }
+
+    #[test]
+    /*
+        Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N pixels.
+        Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction.
+        As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen.
+     */
+    fn op_dxyn() {
+        let mut c8 = new();
+
+        let x = 2;
+        let y = 3;
+
+        c8.v[x] = 0;
+        c8.v[y] = 1;
+
+        for i in 0..8usize {
+            c8.memory[c8.i as usize + i] = 1;
+        }
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xD233);
+
+        c8.print();
+    }
+
+    #[test]
+    // Skips the next instruction if the key stored in VX is pressed (usually the next instruction is a jump to skip a code block).
+    fn op_ex9e_should_skip() {
+        let mut c8 = new();
+
+        c8.v[0] = 0x0;
+        c8.v[1] = 0x01;
+        c8.input[c8.v[0] as usize] = 1;
+        c8.input[c8.v[1] as usize] = 0;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xE09E);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 4);
+    }
+
+    #[test]
+    // Skips the next instruction if the key stored in VX is pressed (usually the next instruction is a jump to skip a code block).
+    fn op_ex9e_should_not_skip() {
+        let mut c8 = new();
+
+        c8.v[0] = 0x0;
+        c8.v[1] = 0x01;
+
+        c8.input[c8.v[0] as usize] = 0;
+        c8.input[c8.v[1] as usize] = 1;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xE09E);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+    }
+
+    #[test]
+    // Skips the next instruction if the key stored in VX is not pressed (usually the next instruction is a jump to skip a code block).
+    fn op_exa1_should_skip() {
+        let mut c8 = new();
+
+        c8.v[0] = 0x0;
+        c8.v[1] = 0x01;
+        c8.input[c8.v[0] as usize] = 0;
+        c8.input[c8.v[1] as usize] = 1;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xE0A1);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 4);
+    }
+
+    #[test]
+    // Skips the next instruction if the key stored in VX is not pressed (usually the next instruction is a jump to skip a code block).
+    fn op_exa1_should_not_skip() {
+        let mut c8 = new();
+
+        c8.v[0] = 0x0;
+        c8.v[1] = 0x01;
+
+        c8.input[c8.v[0] as usize] = 1;
+        c8.input[c8.v[1] as usize] = 0;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xE0A1);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+    }
+
+    #[test]
+    // Sets VX to the value of the delay timer.
+    fn op_fx07() {
+        let mut c8 = new();
+
+        c8.delay_timer = 5;
+        c8.v[1] = 0;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF107);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[1], c8.delay_timer);
+    }
+
+    #[test]
+    // A key press is awaited, and then stored in VX (blocking operation, all instruction halted until next key event).
+    fn op_fx0a() {
+        let mut c8 = new();
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF10A);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        assert_eq!(c8.v[1], 0);
+
+        c8.input[10] = 1;
+        c8.exec_op(0xF10A);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[1], 10);
+    }
+
+    #[test]
+    // Sets the delay timer to VX.
+    fn op_fx15() {
+        let mut c8 = new();
+
+        c8.v[2] = 4;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF215);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.delay_timer, c8.v[2]);
+    }
+
+    #[test]
+    // Sets the sound timer to VX.
+    fn op_fx18() {
+        let mut c8 = new();
+
+        c8.v[2] = 4;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF218);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.sound_timer, c8.v[2]);
+    }
+
+    #[test]
+    // Adds VX to I. VF is not affected.
+    fn op_fx1e() {
+        let mut c8 = new();
+
+        c8.v[2] = 4;
+        c8.v[0xF] = u8::MAX;
+        c8.i = 3;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF21E);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.i, 3 + 4);
+        assert_eq!(c8.v[0xF], u8::MAX);
+    }
+
+    #[test]
+    // Sets I to the location of the sprite for the character in VX.
+    // Characters 0-F (in hexadecimal) are represented by a 4x5 font.
+    fn op_fx29() {
+        let mut c8 = new();
+
+        let font_to_find = 0x02;
+        c8.v[1] = font_to_find;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF129);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.i, (font_to_find * fonts::BYTES_PER_LINE) as u16);
+    }
+
+    #[test]
+    // Stores the binary-coded decimal representation of VX,
+    // with the hundreds digit in memory at location in I,
+    // the tens digit at location I+1, and the ones digit at location I+2.
+    fn op_fx33() {
+        let mut c8 = new();
+
+        c8.v[1] = 201;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF133);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.memory[c8.i as usize], 2);
+        assert_eq!(c8.memory[c8.i as usize + 1], 0);
+        assert_eq!(c8.memory[c8.i as usize + 2], 1);
+    }
+
+    #[test]
+    // Stores from V0 to VX (including VX) in memory, starting at address I.
+    // The offset from I is increased by 1 for each value written,
+    // but I itself is left unmodified.
+    fn op_fx55() {
+        let mut c8 = new();
+
+        c8.v[0] = 2;
+        c8.v[1] = 3;
+        c8.v[2] = 5;
+        c8.v[3] = 9;
+        c8.v[4] = 11;
+
+        c8.i = 50;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF455);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        for i in 0..5 {
+            assert_eq!(c8.memory[c8.i as usize + i as usize], c8.v[i]);
+        }
+    }
+
+    #[test]
+    // Fills from V0 to VX (including VX) with values from memory,
+    // starting at address I.
+    // The offset from I is increased by 1 for each value read,
+    // but I itself is left unmodified.
+    fn op_fx65() {
+        let mut c8 = new();
+
+        c8.i = 50;
+
+        c8.memory[c8.i as usize + 0] = 2;
+        c8.memory[c8.i as usize + 1] = 3;
+        c8.memory[c8.i as usize + 2] = 5;
+        c8.memory[c8.i as usize + 3] = 9;
+        c8.memory[c8.i as usize + 4] = 11;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0xF465);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        for i in 0..4 + 1 {
+            assert_eq!(c8.v[i], c8.memory[c8.i as usize + i as usize]);
+        }
     }
 }
