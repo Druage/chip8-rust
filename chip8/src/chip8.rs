@@ -65,9 +65,8 @@ impl Chip8 {
         let mut pc_step: u16 = 2;
 
         match codes {
-            (0x0, 0x0, 0xE, 0x0) => {
-                self.gfx.fill(0);
-            }
+            (0x0, 0x0, 0xE, 0x0) => self.gfx.fill(0),
+
             (0x0, 0x0, 0xE, 0xE) => println!("Return from subrouting"),
 
             (0x3, _, _, _) => {
@@ -112,6 +111,21 @@ impl Chip8 {
 
 
                 self.v[x] = self.v[x].wrapping_sub(self.v[y]);
+            }
+
+            (0x8, _, _, 0x6) => {
+                self.v[0xF] = self.v[x] & 0x1;
+                self.v[x] >>= 1;
+            }
+
+            (0x8, _, _, 0x7) => {
+                if self.v[x] > self.v[y] {
+                    self.v[0xF] = 0;
+                } else {
+                    self.v[0xF] = 1;
+                }
+
+                self.v[x] = self.v[y].wrapping_sub(self.v[x]);
             }
 
             _ => println!("UNREACHED CODE {} {} {} {} {}", nnn, nn, x, y, n)
@@ -421,5 +435,55 @@ mod tests {
 
         assert_eq!(c8.v[3], 0x01 - 0x01);
         assert_eq!(c8.v[0xF], 1);
+    }
+
+    #[test]
+    // Stores the least significant bit of VX in VF and then shifts VX to the right by 1.[b]
+    fn op_8xy6() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0b01;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8306);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0b00);
+        assert_eq!(c8.v[0xF], 1);
+    }
+
+    #[test]
+    // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there is not.
+    fn op_8xy7_should_not_borrow() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0b10;
+        c8.v[4] = 0b11;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8347);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0b01);
+        assert_eq!(c8.v[0xF], 1);
+    }
+
+    #[test]
+    // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there is not.
+    fn op_8xy7_should_borrow() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0x01;
+        c8.v[4] = 0x00;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8347);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0x00u8.wrapping_sub(0x01));
+        assert_eq!(c8.v[0xF], 0);
     }
 }
