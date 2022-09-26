@@ -96,12 +96,22 @@ impl Chip8 {
             (0x8, _, _, 0x3) => self.v[x] ^= self.v[y],
             (0x8, _, _, 0x4) => {
                 if self.v[y] > (0xFF - self.v[x]) {
-                    self.v[0xF] = 1; // carry
+                    self.v[0xF] = 1;
                 } else {
                     self.v[0xF] = 0;
                 }
 
                 self.v[x] = self.v[x].wrapping_add(self.v[y]);
+            }
+            (0x8, _, _, 0x5) => {
+                if self.v[y] > self.v[x] {
+                    self.v[0xF] = 0;
+                } else {
+                    self.v[0xF] = 1;
+                }
+
+
+                self.v[x] = self.v[x].wrapping_sub(self.v[y]);
             }
 
             _ => println!("UNREACHED CODE {} {} {} {} {}", nnn, nn, x, y, n)
@@ -270,7 +280,7 @@ mod tests {
 
     #[test]
     // Sets VX to the value of VY.
-    fn op_8xn0() {
+    fn op_8xy0() {
         let mut c8 = new();
 
         c8.v[3] = 0x02;
@@ -285,7 +295,7 @@ mod tests {
 
     #[test]
     // Sets VX to VX or VY. (bitwise OR operation)
-    fn op_8xn1() {
+    fn op_8xy1() {
         let mut c8 = new();
 
         c8.v[3] = 0b101;
@@ -300,7 +310,7 @@ mod tests {
 
     #[test]
     // Sets VX to VX and VY. (bitwise AND operation)
-    fn op_8xn2() {
+    fn op_8xy2() {
         let mut c8 = new();
 
         c8.v[3] = 0b101;
@@ -315,7 +325,7 @@ mod tests {
 
     #[test]
     // Sets VX to VX xor VY.
-    fn op_8xn3() {
+    fn op_8xy3() {
         let mut c8 = new();
 
         c8.v[3] = 0b101;
@@ -330,7 +340,7 @@ mod tests {
 
     #[test]
     // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
-    fn op_8xn4_should_carry() {
+    fn op_8xy4_should_carry() {
         let mut c8 = new();
         c8.v[0xF] = u8::MAX;
 
@@ -347,7 +357,7 @@ mod tests {
 
     #[test]
     // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
-    fn op_8xn4_should_not_carry() {
+    fn op_8xy4_should_not_carry() {
         let mut c8 = new();
         c8.v[0xF] = u8::MAX;
 
@@ -360,5 +370,56 @@ mod tests {
 
         assert_eq!(c8.v[3], 0xFE + 0x01);
         assert_eq!(c8.v[0xF], 0);
+    }
+
+    #[test]
+    // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
+    fn op_8xy5_should_borrow() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0x01;
+        c8.v[4] = 0x02;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8345);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0x01u8.wrapping_sub(0x02));
+        assert_eq!(c8.v[0xF], 0);
+    }
+
+    #[test]
+    // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
+    fn op_8xy5_should_not_borrow() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0x02;
+        c8.v[4] = 0x01;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8345);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0x02 - 0x01);
+        assert_eq!(c8.v[0xF], 1);
+    }
+
+    #[test]
+    // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
+    fn op_8xy5_should_not_borrow_if_x_and_y_are_the_same() {
+        let mut c8 = new();
+        c8.v[0xF] = u8::MAX;
+
+        c8.v[3] = 0x01;
+        c8.v[4] = 0x01;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8345);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0x01 - 0x01);
+        assert_eq!(c8.v[0xF], 1);
     }
 }
