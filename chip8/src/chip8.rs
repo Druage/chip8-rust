@@ -4,7 +4,7 @@ const STARTING_PC_OFFSET: u16 = 0x200;
 
 pub struct Chip8 {
     memory: [i32; 4096],
-    registers: [u8; 16],
+    v: [u8; 16],
     stack: [u16; 16],
     input: [u8; 16],
     gfx: [u8; 64 * 32],
@@ -21,7 +21,7 @@ pub struct Chip8 {
 pub fn new() -> Chip8 {
     let mut c8 = Chip8 {
         memory: [0; 4096],
-        registers: [0; 16],
+        v: [0; 16],
         stack: [0; 16],
         input: [0; 16],
         gfx: [0; 64 * 32],
@@ -71,22 +71,26 @@ impl Chip8 {
             (0x0, 0x0, 0xE, 0xE) => println!("Return from subrouting"),
 
             (0x3, _, _, _) => {
-                if self.registers[x] == nn {
+                  if self.v[x] == nn {
                     pc_step = self.skip_next();
                 }
             }
 
             (0x4, _, _, _) => {
-                if self.registers[x] != nn {
+                if self.v[x] != nn {
                     pc_step = self.skip_next();
                 }
             }
 
             (0x5, _, _, 0x0) => {
-                if self.registers[x] == self.registers[y] {
+                if self.v[x] == self.v[y] {
                     pc_step = self.skip_next();
                 }
             }
+
+            (0x6, _, _, _) => self.v[x] = nn,
+            (0x7, _, _, _) => self.v[x] += nn,
+            (0x8, _, _, 0x0) => self.v[x] = self.v[y],
 
             _ => println!("UNREACHED CODE {} {} {} {} {}", nnn, nn, x, y, n)
         }
@@ -106,7 +110,7 @@ mod tests {
     #[test]
     fn on_new_all_variables_and_arrays_are_zeroed_out() {
         let c8 = new();
-        for m in c8.registers {
+        for m in c8.v {
             assert_eq!(m, 0);
         }
 
@@ -201,8 +205,8 @@ mod tests {
 
         let (x_val, y_val) = (0x01, 0x01);
 
-        c8.registers[0] = x_val;
-        c8.registers[1] = y_val;
+        c8.v[0] = x_val;
+        c8.v[1] = y_val;
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x5010);
@@ -216,11 +220,54 @@ mod tests {
 
         let (x_val, y_val) = (0x01, 0x02);
 
-        c8.registers[0] = x_val;
-        c8.registers[2] = y_val;
+        c8.v[0] = x_val;
+        c8.v[2] = y_val;
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x5020);
         assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+    }
+
+    #[test]
+    // Sets VX to NN.
+    fn op_6xnn() {
+        let mut c8 = new();
+
+        assert_eq!(c8.v[3], 0x00);
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x6312);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0x0012);
+    }
+
+    #[test]
+    // Adds NN to VX (carry flag is not changed).
+    fn op_7xnn() {
+        let mut c8 = new();
+
+        c8.v[3] = 0x02;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x7312);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0x02 + 0x0012);
+    }
+
+    #[test]
+    // Sets VX to the value of VY.
+    fn op_8xn0() {
+        let mut c8 = new();
+
+        c8.v[3] = 0x02;
+        c8.v[4] = 0x03;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x8340);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+
+        assert_eq!(c8.v[3], 0x03);
     }
 }
