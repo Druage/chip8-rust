@@ -52,7 +52,9 @@ impl Chip8 {
         return c8;
     }
 
-    pub fn is_draw_ready(&self) -> bool { self.draw_flag }
+    pub fn is_draw_ready(&self) -> bool {
+        self.draw_flag
+    }
 
     pub fn tick(&mut self) {
         self.draw_flag = false;
@@ -64,7 +66,8 @@ impl Chip8 {
             self.sound_timer -= 1
         }
 
-        let op_code = (self.memory[self.pc as usize] as u16) << 8 | (self.memory[self.pc as usize + 1] as u16);
+        let op_code = (self.memory[self.pc as usize] as u16) << 8
+            | (self.memory[self.pc as usize + 1] as u16);
         self.exec_op(op_code);
     }
 
@@ -94,7 +97,7 @@ impl Chip8 {
             (code & 0xF000) >> 12 as u8,
             (code & 0x0F00) >> 8 as u8,
             (code & 0x00F0) >> 4 as u8,
-            (code & 0x000F) as u8
+            (code & 0x000F) as u8,
         );
 
         let nnn = code & 0x0FFF;
@@ -108,27 +111,36 @@ impl Chip8 {
 
         match codes {
             (0x0, 0x0, 0xE, 0x0) => self.gfx.fill(0),
-
-            (0x0, 0x0, 0xE, 0xE) => println!("Return from subrouting"),
-
+            (0x0, 0x0, 0xE, 0xE) => {
+                self.sp = self.sp.wrapping_sub(1);
+                self.pc = self.stack[self.sp as usize];
+                return;
+            }
+            (0x1, _, _, _) => {
+                self.pc = nnn;
+                return;
+            }
+            (0x2, _, _, _) => {
+                self.stack[self.sp as usize] = self.pc;
+                self.sp = self.sp.wrapping_add(1);
+                self.pc = nnn;
+                return;
+            }
             (0x3, _, _, _) => {
                 if self.v[x] == nn {
                     pc_step = self.skip_next();
                 }
             }
-
             (0x4, _, _, _) => {
                 if self.v[x] != nn {
                     pc_step = self.skip_next();
                 }
             }
-
             (0x5, _, _, 0x0) => {
                 if self.v[x] == self.v[y] {
                     pc_step = self.skip_next();
                 }
             }
-
             (0x6, _, _, _) => self.v[x] = nn,
             (0x7, _, _, _) => self.v[x] = self.v[x].wrapping_add(nn),
             (0x8, _, _, 0x0) => self.v[x] = self.v[y],
@@ -141,7 +153,6 @@ impl Chip8 {
                 } else {
                     self.v[0xF] = 0;
                 }
-
                 self.v[x] = self.v[x].wrapping_add(self.v[y]);
             }
             (0x8, _, _, 0x5) => {
@@ -150,26 +161,20 @@ impl Chip8 {
                 } else {
                     self.v[0xF] = 1;
                 }
-
-
                 self.v[x] = self.v[x].wrapping_sub(self.v[y]);
             }
-
             (0x8, _, _, 0x6) => {
                 self.v[0xF] = self.v[x] & 1;
                 self.v[x] >>= 1;
             }
-
             (0x8, _, _, 0x7) => {
                 if self.v[x] > self.v[y] {
                     self.v[0xF] = 0;
                 } else {
                     self.v[0xF] = 1;
                 }
-
                 self.v[x] = self.v[y].wrapping_sub(self.v[x]);
             }
-
             (0x8, _, _, 0xE) => {
                 self.v[0xF] = (self.v[x] >> 7) & 1;
                 self.v[x] <<= 1;
@@ -180,45 +185,43 @@ impl Chip8 {
                     pc_step = self.skip_next();
                 }
             }
-
             (0xA, _, _, _) => self.i = nnn,
             (0xB, _, _, _) => {
                 self.pc = (self.v[0] as u16 + nnn) as u16;
                 return; // Jump to address by not letting pc_step increment self.pc
             }
-
             (0xC, _, _, _) => self.v[x] = rand::random::<u8>() & nn,
             (0xD, _, _, _) => {
+                self.draw_flag = true;
                 self.v[0xF] = 0;
 
-                for col in 0..n {
-                    let y_pos = (self.v[y] as usize + col) % GFX_HEIGHT;
+                for y_line in 0..n {
+                    let px = self.memory[self.i as usize + y_line];
 
-                    for row in 0..8 {
-                        let x_pos = (self.v[x] as usize + row) % GFX_WIDTH;
+                    for x_line in 0u8..8 {
+                        if (px & (0x80 >> x_line)) != 0 {
+                            // if drawing causes any pixel to be erased set the
+                            // collision flag to 1
+                            if self.gfx[(self.v[x] as usize + x_line as usize + ((self.v[y] as usize + y_line) * 64))] == 1 {
+                                self.v[0xF] = 1;
+                            }
 
-                        let color = (self.memory[self.i as usize + col] >> (7 - row)) & 1;
-
-                        self.v[0xF] |= (color & self.gfx[(x_pos + row + ((y_pos as usize + col) * GFX_WIDTH))]);
-                        self.gfx[(x_pos + row + ((y_pos + col) * GFX_WIDTH))] ^= color;
+                            // set pixel value by using XOR
+                            self.gfx[self.v[x] as usize + x_line as usize + ((self.v[y] as usize + y_line) * 64)] ^= 1;
+                        }
                     }
                 }
-
-                self.draw_flag = true;
             }
-
             (0xE, _, 0x9, 0xE) => {
                 if self.input[self.v[x] as usize] == 1 {
                     pc_step = self.skip_next();
                 }
             }
-
             (0xE, _, 0xA, 0x1) => {
                 if self.input[self.v[x] as usize] != 1 {
                     pc_step = self.skip_next();
                 }
             }
-
             (0xF, _, 0x0, 0x7) => self.v[x] = self.delay_timer,
             (0xF, _, 0x0, 0xA) => {
                 let mut input_pressed = false;
@@ -229,7 +232,6 @@ impl Chip8 {
                         break;
                     }
                 }
-
                 if !input_pressed {
                     return;
                 }
@@ -244,22 +246,21 @@ impl Chip8 {
                 self.memory[self.i as usize + 1] = (self.v[x] % 100) / 10;
                 self.memory[self.i as usize + 2] = self.v[x] % 10;
             }
-
             (0xF, _, 0x5, 0x5) => {
                 for register_index in 0..x + 1 {
                     self.memory[self.i as usize + register_index] = self.v[register_index];
                 }
             }
-
             (0xF, _, 0x6, 0x5) => {
                 for register_index in 0..x + 1 {
                     self.v[register_index] = self.memory[self.i as usize + register_index];
                 }
             }
-
-            _ => println!("UNREACHED CODE {:#02X} {} {} {} {} {}", code, nnn, nn, x, y, n)
+            _ => println!(
+                "UNREACHED CODE {:#02X} {} {} {} {} {}",
+                code, nnn, nn, x, y, n
+            ),
         }
-
         self.pc += pc_step;
     }
 
@@ -309,7 +310,7 @@ mod tests {
     }
 
     #[test]
-    fn should_clear_the_screen_and_inc_counter() {
+    fn op_00e0_should_clear_the_screen_and_inc_counter() {
         let mut c8 = Chip8::new();
 
         c8.gfx.fill(1);
@@ -321,6 +322,21 @@ mod tests {
         for bit in c8.gfx {
             assert_eq!(bit, 0);
         }
+    }
+
+    #[test]
+    fn op_00ee() {
+        let mut c8 = Chip8::new();
+
+        let pc_step = 2;
+        c8.sp = 2;
+        c8.stack[c8.sp as usize - 1] = 255;
+
+        assert_eq!(c8.pc, STARTING_PC_OFFSET);
+        c8.exec_op(0x00EE);
+        assert_eq!(c8.pc, 255);
+
+        assert_eq!(c8.sp, 1);
     }
 
     #[test]
@@ -700,10 +716,10 @@ mod tests {
 
     #[test]
     /*
-        Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N pixels.
-        Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction.
-        As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen.
-     */
+       Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N pixels.
+       Each row of 8 pixels is read as bit-coded starting from memory location I; I value does not change after the execution of this instruction.
+       As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen.
+    */
     fn op_dxyn() {
         let mut c8 = Chip8::new();
 
@@ -717,8 +733,11 @@ mod tests {
             c8.memory[c8.i as usize + i] = 1;
         }
 
+        assert_eq!(c8.is_draw_ready(), false);
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0xD233);
+        assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
+        assert_eq!(c8.is_draw_ready(), true);
 
         c8.print();
     }
