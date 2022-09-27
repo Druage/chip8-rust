@@ -11,7 +11,7 @@ pub struct Chip8 {
     memory: [u8; 4096],
     v: [u8; 16],
     stack: [u16; 16],
-    input: [u8; 16],
+    pub input: [u8; 16],
     pub gfx: [u8; GFX_WIDTH * GFX_HEIGHT],
 
     opcode: u16,
@@ -92,16 +92,16 @@ impl Chip8 {
         }
     }
 
-    fn exec_op(&mut self, code: u16) {
+    fn exec_op(&mut self, opcode: u16) {
         let codes = (
-            (code & 0xF000) >> 12 as u8,
-            (code & 0x0F00) >> 8 as u8,
-            (code & 0x00F0) >> 4 as u8,
-            (code & 0x000F) as u8,
+            (opcode & 0xF000) >> 12 as u8,
+            (opcode & 0x0F00) >> 8 as u8,
+            (opcode & 0x00F0) >> 4 as u8,
+            (opcode & 0x000F) as u8,
         );
 
-        let nnn = code & 0x0FFF;
-        let nn = (code & 0x00FF) as u8;
+        let nnn = opcode & 0x0FFF;
+        let nn = (opcode & 0x00FF) as u8;
 
         let x = codes.1 as usize;
         let y = codes.2 as usize;
@@ -258,7 +258,7 @@ impl Chip8 {
             }
             _ => println!(
                 "UNREACHED CODE {:#02X} {} {} {} {} {}",
-                code, nnn, nn, x, y, n
+                opcode, nnn, nn, x, y, n
             ),
         }
         self.pc += pc_step;

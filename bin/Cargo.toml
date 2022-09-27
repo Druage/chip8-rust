@@ -7,8 +7,4 @@ edition = "2021"
 
 [dependencies]
 chip8 = { path = "../chip8" }
-
-[dependencies.sdl2]
-version = "0.35.2"
-default-features = false
-features = ["bundled", "gfx"]
+minifb = "0.23"
