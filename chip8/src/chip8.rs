@@ -4,8 +4,8 @@ use std::fs;
 use std::path::Path;
 
 const STARTING_PC_OFFSET: u16 = 0x200;
-const GFX_WIDTH: usize = 64;
-const GFX_HEIGHT: usize = 32;
+pub const GFX_WIDTH: usize = 64;
+pub const GFX_HEIGHT: usize = 32;
 
 pub struct Chip8 {
     memory: [u8; 4096],
@@ -21,6 +21,8 @@ pub struct Chip8 {
 
     delay_timer: u8,
     sound_timer: u8,
+
+    draw_flag: bool,
 }
 
 impl Chip8 {
@@ -39,6 +41,8 @@ impl Chip8 {
 
             delay_timer: 0,
             sound_timer: 0,
+
+            draw_flag: false,
         };
 
         for i in 0..fonts::FONTS.len() {
@@ -48,7 +52,23 @@ impl Chip8 {
         return c8;
     }
 
-    fn print(&self) {
+    pub fn is_draw_ready(&self) -> bool { self.draw_flag }
+
+    pub fn tick(&mut self) {
+        self.draw_flag = false;
+
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1
+        }
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1
+        }
+
+        let op_code = (self.memory[self.pc as usize] as u16) << 8 | (self.memory[self.pc as usize + 1] as u16);
+        self.exec_op(op_code);
+    }
+
+    pub fn print(&self) {
         for col in 0..GFX_HEIGHT {
             for row in 0..GFX_WIDTH {
                 if self.gfx[col * GFX_WIDTH + row] == 0 {
@@ -69,7 +89,7 @@ impl Chip8 {
         }
     }
 
-    pub fn exec_op(&mut self, code: u16) {
+    fn exec_op(&mut self, code: u16) {
         let codes = (
             (code & 0xF000) >> 12 as u8,
             (code & 0x0F00) >> 8 as u8,
@@ -110,7 +130,7 @@ impl Chip8 {
             }
 
             (0x6, _, _, _) => self.v[x] = nn,
-            (0x7, _, _, _) => self.v[x] += nn,
+            (0x7, _, _, _) => self.v[x] = self.v[x].wrapping_add(nn),
             (0x8, _, _, 0x0) => self.v[x] = self.v[y],
             (0x8, _, _, 0x1) => self.v[x] |= self.v[y],
             (0x8, _, _, 0x2) => self.v[x] &= self.v[y],
@@ -183,6 +203,8 @@ impl Chip8 {
                         self.gfx[(x_pos + row + ((y_pos + col) * GFX_WIDTH))] ^= color;
                     }
                 }
+
+                self.draw_flag = true;
             }
 
             (0xE, _, 0x9, 0xE) => {
@@ -235,7 +257,7 @@ impl Chip8 {
                 }
             }
 
-            _ => println!("UNREACHED CODE {} {} {} {} {}", nnn, nn, x, y, n)
+            _ => println!("UNREACHED CODE {:#02X} {} {} {} {} {}", code, nnn, nn, x, y, n)
         }
 
         self.pc += pc_step;

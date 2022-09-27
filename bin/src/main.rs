@@ -1,42 +1,46 @@
-extern crate sdl2;
+use sdl2::pixels;
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+use sdl2::render::Canvas;
+use sdl2::video::Window;
+use sdl2::rect::Rect;
 
 use chip8;
 use chip8::Chip8;
 
-use sdl2::pixels::Color;
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
 use std::time::Duration;
 
-/*
-std::pair<SDL_Window *, SDL_Renderer *> initSDL() {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        std::cout << "Failed to initialize the SDL2 library\n";
-        exit(-1);
+const SCALE_FACTOR: u32 = 20;
+
+// TODO
+// 1. Add test for draw flag in Chip8
+// 2. Add test for read_op_code() func
+
+fn color(value: u8) -> pixels::Color {
+    if value == 0 {
+        pixels::Color::RGB(0, 0, 0)
+    } else {
+        pixels::Color::RGB(0, 250, 0)
     }
-
-    SDL_Window *window = SDL_CreateWindow("The Game Of Life",
-                                          SDL_WINDOWPOS_CENTERED,
-                                          SDL_WINDOWPOS_CENTERED,
-                                          640,
-                                          480,
-                                          SDL_WINDOW_SHOWN);
-
-    if (!window) {
-        std::cout << "Failed to create window\n";
-        exit(-1);
-    }
-
-    auto *renderer = SDL_CreateRenderer(window, -1,
-                                        SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
-
-    return std::make_pair(window, renderer);
 }
- */
+
+pub fn draw(mut canvas: Canvas<Window>, pixels: &[[u8; chip8::GFX_WIDTH]; chip8::GFX_HEIGHT]) {
+    for (y, row) in pixels.iter().enumerate() {
+        for (x, &col) in row.iter().enumerate() {
+            let x = (x as u32) * SCALE_FACTOR;
+            let y = (y as u32) * SCALE_FACTOR;
+
+            canvas.set_draw_color(color(col));
+            let _ = canvas
+                .fill_rect(Rect::new(x as i32, y as i32, SCALE_FACTOR, SCALE_FACTOR));
+        }
+    }
+    canvas.present();
+}
 
 fn main() {
     let mut c8 = Chip8::new();
-    c8.load("test_opcode.ch8");
+    c8.load("Space Invaders.ch8");
 
     println!("Hello, world!");
 
@@ -50,7 +54,7 @@ fn main() {
 
     let mut canvas = window.into_canvas().build().unwrap();
 
-    canvas.set_draw_color(Color::RGB(0, 255, 255));
+    canvas.set_draw_color(pixels::Color::RGB(0, 255, 255));
     canvas.clear();
     canvas.present();
 
@@ -58,12 +62,18 @@ fn main() {
 
     'running: loop {
 
+        c8.tick();
+
+        if c8.is_draw_ready() {
+            c8.print();
+        }
+
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit {..} |
+                Event::Quit { .. } |
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    break 'running
-                },
+                    break 'running;
+                }
                 _ => {}
             }
         }
