@@ -6,7 +6,7 @@ use sdl2::video::Window;
 use sdl2::rect::Rect;
 
 use chip8;
-use chip8::Chip8;
+use chip8::{Chip8, GFX_WIDTH};
 
 use std::time::Duration;
 
@@ -22,20 +22,6 @@ fn color(value: u8) -> pixels::Color {
     } else {
         pixels::Color::RGB(0, 250, 0)
     }
-}
-
-pub fn draw(mut canvas: Canvas<Window>, pixels: &[[u8; chip8::GFX_WIDTH]; chip8::GFX_HEIGHT]) {
-    for (y, row) in pixels.iter().enumerate() {
-        for (x, &col) in row.iter().enumerate() {
-            let x = (x as u32) * SCALE_FACTOR;
-            let y = (y as u32) * SCALE_FACTOR;
-
-            canvas.set_draw_color(color(col));
-            let _ = canvas
-                .fill_rect(Rect::new(x as i32, y as i32, SCALE_FACTOR, SCALE_FACTOR));
-        }
-    }
-    canvas.present();
 }
 
 fn main() {
@@ -61,11 +47,18 @@ fn main() {
     let mut event_pump = sdl_context.event_pump().unwrap();
 
     'running: loop {
-
         c8.tick();
 
         if c8.is_draw_ready() {
-            c8.print();
+            for x in 0..chip8::GFX_WIDTH {
+                for y in 0..chip8::GFX_HEIGHT {
+                    let p = c8.gfx[chip8::GFX_HEIGHT * x + y];
+
+                    canvas.set_draw_color(color(p));
+                    canvas.fill_rect(Rect::new(x as i32, y as i32, SCALE_FACTOR, SCALE_FACTOR));
+                }
+            }
+            canvas.present();
         }
 
         for event in event_pump.poll_iter() {

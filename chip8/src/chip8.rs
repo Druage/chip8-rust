@@ -12,7 +12,7 @@ pub struct Chip8 {
     v: [u8; 16],
     stack: [u16; 16],
     input: [u8; 16],
-    gfx: [u8; GFX_WIDTH * GFX_HEIGHT],
+    pub gfx: [u8; GFX_WIDTH * GFX_HEIGHT],
 
     opcode: u16,
     i: u16,
