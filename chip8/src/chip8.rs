@@ -1,5 +1,7 @@
 use crate::fonts;
 use rand::prelude::*;
+use std::fs;
+use std::path::Path;
 
 const STARTING_PC_OFFSET: u16 = 0x200;
 const GFX_WIDTH: usize = 64;
@@ -22,7 +24,6 @@ pub struct Chip8 {
 }
 
 impl Chip8 {
-
     pub fn new() -> Chip8 {
         let mut c8 = Chip8 {
             memory: [0; 4096],
@@ -58,6 +59,13 @@ impl Chip8 {
             }
 
             print!("\n");
+        }
+    }
+
+    pub fn load(&mut self, file_path: &str) {
+        let data = fs::read(file_path).unwrap();
+        for (i, it) in data.iter().enumerate() {
+            self.memory[self.pc as usize + i] = *it;
         }
     }
 
@@ -234,7 +242,7 @@ impl Chip8 {
     }
 
     fn skip_next(&mut self) -> u16 {
-        return 4;
+        4
     }
 }
 
@@ -245,7 +253,7 @@ mod tests {
     #[test]
     fn on_new_all_variables_and_arrays_are_zeroed_out() {
         let c8 = Chip8::new();
-        
+
         for m in c8.v {
             assert_eq!(m, 0);
         }
