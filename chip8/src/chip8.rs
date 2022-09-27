@@ -21,51 +21,33 @@ pub struct Chip8 {
     sound_timer: u8,
 }
 
-pub fn new() -> Chip8 {
-    let mut c8 = Chip8 {
-        memory: [0; 4096],
-        v: [0; 16],
-        stack: [0; 16],
-        input: [0; 16],
-        gfx: [0; GFX_WIDTH * GFX_HEIGHT],
-
-        opcode: 0,
-        i: 0,
-        pc: STARTING_PC_OFFSET,
-        sp: 0,
-
-        delay_timer: 0,
-        sound_timer: 0,
-    };
-
-    for i in 0..fonts::FONTS.len() {
-        c8.memory[i] = fonts::FONTS[i];
-    }
-
-    return c8;
-}
-
 impl Chip8 {
-    fn print(&self) {
-        /*
-        void Chip8::drawToConsole() {
-    // Draw
-    auto debug = qDebug();
-    for(int y = 0; y < 32; ++y)
-    {
-        for(int x = 0; x < 64; ++x)
-        {
-            if( m_gfx[(y*64) + x] == 0)
-                debug << " ";
-            else
-                debug << "X";
+
+    pub fn new() -> Chip8 {
+        let mut c8 = Chip8 {
+            memory: [0; 4096],
+            v: [0; 16],
+            stack: [0; 16],
+            input: [0; 16],
+            gfx: [0; GFX_WIDTH * GFX_HEIGHT],
+
+            opcode: 0,
+            i: 0,
+            pc: STARTING_PC_OFFSET,
+            sp: 0,
+
+            delay_timer: 0,
+            sound_timer: 0,
+        };
+
+        for i in 0..fonts::FONTS.len() {
+            c8.memory[i] = fonts::FONTS[i];
         }
-        debug << "\n";
+
+        return c8;
     }
 
-}
-         */
-
+    fn print(&self) {
         for col in 0..GFX_HEIGHT {
             for row in 0..GFX_WIDTH {
                 if self.gfx[col * GFX_WIDTH + row] == 0 {
@@ -262,7 +244,8 @@ mod tests {
 
     #[test]
     fn on_new_all_variables_and_arrays_are_zeroed_out() {
-        let c8 = new();
+        let c8 = Chip8::new();
+        
         for m in c8.v {
             assert_eq!(m, 0);
         }
@@ -289,7 +272,7 @@ mod tests {
 
     #[test]
     fn on_new_should_load_fonts_into_memory() {
-        let c8 = new();
+        let c8 = Chip8::new();
         for i in 0..80 {
             assert_eq!(c8.memory[i], fonts::FONTS[i]);
         }
@@ -297,7 +280,7 @@ mod tests {
 
     #[test]
     fn should_clear_the_screen_and_inc_counter() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.gfx.fill(1);
 
@@ -313,7 +296,7 @@ mod tests {
     #[test]
     // Skips the next instruction if VX equals NN
     fn op_3xnn_should_skip_next_instruction() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x3000);
@@ -323,7 +306,7 @@ mod tests {
     #[test]
     // Skips the next instruction if VX equals NN
     fn op_3xnn_should_not_skip_next() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x3001);
@@ -333,7 +316,7 @@ mod tests {
     #[test]
     // Skips the next instruction if VX does not equal NN
     fn op_4xnn_should_skip_next() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x4001);
@@ -343,7 +326,7 @@ mod tests {
     #[test]
     // Skips the next instruction if VX does not equal NN
     fn op_4xnn_should_not_skip_next() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0x4000);
@@ -353,7 +336,7 @@ mod tests {
     #[test]
     // Skips the next instruction if VX equals VY
     fn op_5xnn_should_skip_next() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         let (x_val, y_val) = (0x01, 0x01);
 
@@ -368,7 +351,7 @@ mod tests {
     #[test]
     // Skips the next instruction if VX equals VY
     fn op_5xnn_should_not_skip_next() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         let (x_val, y_val) = (0x01, 0x02);
 
@@ -383,7 +366,7 @@ mod tests {
     #[test]
     // Sets VX to NN.
     fn op_6xnn() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         assert_eq!(c8.v[3], 0x00);
 
@@ -397,7 +380,7 @@ mod tests {
     #[test]
     // Adds NN to VX (carry flag is not changed).
     fn op_7xnn() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[3] = 0x02;
 
@@ -411,7 +394,7 @@ mod tests {
     #[test]
     // Sets VX to the value of VY.
     fn op_8xy0() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[3] = 0x02;
         c8.v[4] = 0x03;
@@ -426,7 +409,7 @@ mod tests {
     #[test]
     // Sets VX to VX or VY. (bitwise OR operation)
     fn op_8xy1() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[3] = 0b101;
         c8.v[4] = 0b110;
@@ -441,7 +424,7 @@ mod tests {
     #[test]
     // Sets VX to VX and VY. (bitwise AND operation)
     fn op_8xy2() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[3] = 0b101;
         c8.v[4] = 0b011;
@@ -456,7 +439,7 @@ mod tests {
     #[test]
     // Sets VX to VX xor VY.
     fn op_8xy3() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[3] = 0b101;
         c8.v[4] = 0b011;
@@ -471,7 +454,7 @@ mod tests {
     #[test]
     // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
     fn op_8xy4_should_carry() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0xFF;
@@ -488,7 +471,7 @@ mod tests {
     #[test]
     // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there is not.
     fn op_8xy4_should_not_carry() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0xFE;
@@ -505,7 +488,7 @@ mod tests {
     #[test]
     // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
     fn op_8xy5_should_borrow() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0x01;
@@ -522,7 +505,7 @@ mod tests {
     #[test]
     // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
     fn op_8xy5_should_not_borrow() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0x02;
@@ -539,7 +522,7 @@ mod tests {
     #[test]
     // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there is not.
     fn op_8xy5_should_not_borrow_if_x_and_y_are_the_same() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0x01;
@@ -556,7 +539,7 @@ mod tests {
     #[test]
     // Stores the least significant bit of VX in VF and then shifts VX to the right by 1.[b]
     fn op_8xy6() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0b01;
@@ -572,7 +555,7 @@ mod tests {
     #[test]
     // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there is not.
     fn op_8xy7_should_not_borrow() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0b10;
@@ -589,7 +572,7 @@ mod tests {
     #[test]
     // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there is not.
     fn op_8xy7_should_borrow() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0x01;
@@ -606,7 +589,7 @@ mod tests {
     #[test]
     // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
     fn op_8xye() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 0b01;
@@ -622,7 +605,7 @@ mod tests {
     #[test]
     // Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block);
     fn op_9xy40_should_skip() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 1;
@@ -636,7 +619,7 @@ mod tests {
     #[test]
     // Skips the next instruction if VX does not equal VY. (Usually the next instruction is a jump to skip a code block);
     fn op_9xy40_should_not_skip() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
         c8.v[0xF] = u8::MAX;
 
         c8.v[3] = 2;
@@ -650,7 +633,7 @@ mod tests {
     #[test]
     // Sets I to the address NNN.
     fn op_annn() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0xAEF1);
@@ -662,7 +645,7 @@ mod tests {
     #[test]
     // Jumps to the address NNN plus V0.
     fn op_bnnn() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[0x0] = 0x01;
 
@@ -675,7 +658,7 @@ mod tests {
     // #[test]
     // // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN.
     // fn op_cxnn() {
-    //     let mut c8 = new();
+    //     let mut c8 = Chip8::new();
     //
     //     assert_eq!(c8.pc, STARTING_PC_OFFSET);
     //     c8.exec_op(0xC133);
@@ -692,7 +675,7 @@ mod tests {
         As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that does not happen.
      */
     fn op_dxyn() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         let x = 2;
         let y = 3;
@@ -713,7 +696,7 @@ mod tests {
     #[test]
     // Skips the next instruction if the key stored in VX is pressed (usually the next instruction is a jump to skip a code block).
     fn op_ex9e_should_skip() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[0] = 0x0;
         c8.v[1] = 0x01;
@@ -728,7 +711,7 @@ mod tests {
     #[test]
     // Skips the next instruction if the key stored in VX is pressed (usually the next instruction is a jump to skip a code block).
     fn op_ex9e_should_not_skip() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[0] = 0x0;
         c8.v[1] = 0x01;
@@ -744,7 +727,7 @@ mod tests {
     #[test]
     // Skips the next instruction if the key stored in VX is not pressed (usually the next instruction is a jump to skip a code block).
     fn op_exa1_should_skip() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[0] = 0x0;
         c8.v[1] = 0x01;
@@ -759,7 +742,7 @@ mod tests {
     #[test]
     // Skips the next instruction if the key stored in VX is not pressed (usually the next instruction is a jump to skip a code block).
     fn op_exa1_should_not_skip() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[0] = 0x0;
         c8.v[1] = 0x01;
@@ -775,7 +758,7 @@ mod tests {
     #[test]
     // Sets VX to the value of the delay timer.
     fn op_fx07() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.delay_timer = 5;
         c8.v[1] = 0;
@@ -790,7 +773,7 @@ mod tests {
     #[test]
     // A key press is awaited, and then stored in VX (blocking operation, all instruction halted until next key event).
     fn op_fx0a() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         c8.exec_op(0xF10A);
@@ -807,7 +790,7 @@ mod tests {
     #[test]
     // Sets the delay timer to VX.
     fn op_fx15() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[2] = 4;
 
@@ -821,7 +804,7 @@ mod tests {
     #[test]
     // Sets the sound timer to VX.
     fn op_fx18() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[2] = 4;
 
@@ -835,7 +818,7 @@ mod tests {
     #[test]
     // Adds VX to I. VF is not affected.
     fn op_fx1e() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[2] = 4;
         c8.v[0xF] = u8::MAX;
@@ -853,7 +836,7 @@ mod tests {
     // Sets I to the location of the sprite for the character in VX.
     // Characters 0-F (in hexadecimal) are represented by a 4x5 font.
     fn op_fx29() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         let font_to_find = 0x02;
         c8.v[1] = font_to_find;
@@ -870,7 +853,7 @@ mod tests {
     // with the hundreds digit in memory at location in I,
     // the tens digit at location I+1, and the ones digit at location I+2.
     fn op_fx33() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[1] = 201;
 
@@ -888,7 +871,7 @@ mod tests {
     // The offset from I is increased by 1 for each value written,
     // but I itself is left unmodified.
     fn op_fx55() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.v[0] = 2;
         c8.v[1] = 3;
@@ -913,7 +896,7 @@ mod tests {
     // The offset from I is increased by 1 for each value read,
     // but I itself is left unmodified.
     fn op_fx65() {
-        let mut c8 = new();
+        let mut c8 = Chip8::new();
 
         c8.i = 50;
 
