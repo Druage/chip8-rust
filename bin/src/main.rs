@@ -50,15 +50,7 @@ fn main() {
         c8.tick();
 
         if c8.is_draw_ready() {
-            for x in 0..chip8::GFX_WIDTH {
-                for y in 0..chip8::GFX_HEIGHT {
-                    let p = c8.gfx[chip8::GFX_HEIGHT * x + y];
-
-                    canvas.set_draw_color(color(p));
-                    canvas.fill_rect(Rect::new(x as i32, y as i32, SCALE_FACTOR, SCALE_FACTOR));
-                }
-            }
-            canvas.present();
+            c8.print();
         }
 
         for event in event_pump.poll_iter() {
