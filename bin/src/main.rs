@@ -1,7 +1,7 @@
 use chip8;
 use chip8::{Chip8, GFX_HEIGHT, GFX_WIDTH};
 
-use minifb::{Key, KeyRepeat, Window, WindowOptions};
+use minifb::{Key, Window, WindowOptions};
 
 const WIDTH: usize = 640;
 const HEIGHT: usize = 360;
@@ -12,7 +12,7 @@ const HEIGHT: usize = 360;
 
 fn main() {
     let mut c8 = Chip8::new();
-    c8.load("Space Invaders.ch8");
+    c8.load("./roms/TEST_OPCODES");
 
     let mut buffer: Vec<u32> = vec![0; GFX_WIDTH * GFX_HEIGHT];
 

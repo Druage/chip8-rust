@@ -1,7 +1,6 @@
 use crate::fonts;
 use rand::prelude::*;
 use std::fs;
-use std::path::Path;
 
 const STARTING_PC_OFFSET: u16 = 0x200;
 pub const GFX_WIDTH: usize = 64;
@@ -14,7 +13,6 @@ pub struct Chip8 {
     pub input: [u8; 16],
     pub gfx: [u8; GFX_WIDTH * GFX_HEIGHT],
 
-    opcode: u16,
     i: u16,
     pc: u16,
     sp: u16,
@@ -34,7 +32,6 @@ impl Chip8 {
             input: [0; 16],
             gfx: [0; GFX_WIDTH * GFX_HEIGHT],
 
-            opcode: 0,
             i: 0,
             pc: STARTING_PC_OFFSET,
             sp: 0,
