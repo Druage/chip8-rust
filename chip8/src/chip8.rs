@@ -68,7 +68,7 @@ impl Chip8 {
         self.exec_op(op_code);
     }
 
-    pub fn print(&self) {
+    pub fn debug_gfx_to_stdout(&self) {
         for col in 0..GFX_HEIGHT {
             for row in 0..GFX_WIDTH {
                 if self.gfx[col * GFX_WIDTH + row] == 0 {
@@ -290,7 +290,6 @@ mod tests {
             assert_eq!(bit, 0);
         }
 
-        assert_eq!(c8.opcode, 0);
         assert_eq!(c8.i, 0);
         assert_eq!(c8.pc, STARTING_PC_OFFSET);
         assert_eq!(c8.sp, 0);
@@ -736,7 +735,7 @@ mod tests {
         assert_eq!(c8.pc, STARTING_PC_OFFSET + 2);
         assert_eq!(c8.is_draw_ready(), true);
 
-        c8.print();
+        c8.debug_gfx_to_stdout();
     }
 
     #[test]
