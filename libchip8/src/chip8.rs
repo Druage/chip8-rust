@@ -1,5 +1,4 @@
 use crate::fonts;
-use rand::prelude::*;
 use std::fs;
 
 const STARTING_PC_OFFSET: u16 = 0x200;
