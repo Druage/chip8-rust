@@ -323,7 +323,6 @@ mod tests {
     fn op_00ee() {
         let mut c8 = Chip8::new();
 
-        let pc_step = 2;
         c8.sp = 2;
         c8.stack[c8.sp as usize - 1] = 255;
 

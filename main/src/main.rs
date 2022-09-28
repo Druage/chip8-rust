@@ -12,7 +12,7 @@ const HEIGHT: usize = 360;
 
 fn main() {
     let mut c8 = Chip8::new();
-    c8.load("./roms/TEST_OPCODES");
+    c8.load("./roms/TEST_ROM_WITH_AUDIO");
 
     let mut buffer: Vec<u32> = vec![0; GFX_WIDTH * GFX_HEIGHT];
 
