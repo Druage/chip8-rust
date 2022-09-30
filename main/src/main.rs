@@ -1,6 +1,9 @@
+mod sys_timer;
+
 use chip8;
 use chip8::{Chip8, GFX_HEIGHT, GFX_WIDTH};
 
+use crate::sys_timer::SysTimer;
 use minifb::{Key, Window, WindowOptions};
 
 const WIDTH: usize = 640;
@@ -23,10 +26,10 @@ fn main() {
             panic!("{}", e);
         });
 
-    // Limit to max ~60 fps update rate
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
+    let timer = SysTimer::new(16600);
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
+        timer.pause_until_target_reached();
         c8.tick();
 
         update_input_states(&mut c8, &mut window);
